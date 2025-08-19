@@ -6,7 +6,13 @@
 #ifndef SMALLDATAIO_HPP_
 #define SMALLDATAIO_HPP_
 
+#include <algorithm>
+#include <cassert>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -18,6 +24,8 @@
 class SmallDataIO
 {
   public:
+    using column_t = std::vector<double>;
+
     //! Choose between appending data to the same file, writing to a new file
     //! at each timestep or reading a file.
     enum Mode
@@ -26,6 +34,25 @@ class SmallDataIO
         NEW,    // data is written to a NEW file at each timestep
         READ    // read data
     };
+
+    // A struct for information about the structure of a SmallDataIO file
+    struct file_structure_t
+    {
+        int num_blocks; // a block is separated by 2 blank lines
+        std::vector<std::streamoff>
+            block_starts; // position offsets from the beginning of the file
+
+        std::vector<int> num_header_rows;  // the number of header rows in
+                                           // each block
+        std::vector<int> num_data_rows;    // the number of data rows in each
+                                           // block
+        std::vector<int> num_data_columns; // number of data columns in each
+                                           // block
+        void clear();
+    };
+
+    // Maximum allowed file size in bytes
+    static constexpr int max_file_size = 1024 * 1024 * 1024;
 
   protected:
     std::string m_filename;
@@ -49,6 +76,17 @@ class SmallDataIO
 
     std::fstream m_file;
     int m_rank; // only rank 0 does the write out
+
+    // These used for reading SmallDataIO files
+    [[maybe_unused]] std::string m_file_contents;
+    [[maybe_unused]] file_structure_t m_file_structure;
+    [[maybe_unused]] bool m_structure_defined;
+
+    // Reads the entire file
+    [[maybe_unused]] void read_file();
+
+    // Parses the file and determines its structure
+    [[maybe_unused]] void determine_file_structure();
 
   public:
     //! Constructor (opens file)
@@ -135,7 +173,54 @@ class SmallDataIO
     void get_specific_data_line(std::vector<double> &a_out_data,
                                 const double a_coord);
 
+    // Set structure if known already (e.g. same as another file already
+    // determined)
+    void set_file_structure(const file_structure_t &a_file_structure);
+
+    // File struture getter
+    const file_structure_t &get_file_structure() const;
+
+    // Print file structure
+    void print_file_structure() const;
+
+    // Get an interval of columns (inclusive) from a block
+    void get_columns(std::vector<column_t> &out, int a_min_column,
+                     int a_max_column, int a_block = 0);
+
+    // Get columns based on their names in the header
+    // (does not assume continguous column numbers)
+    void get_columns(std::vector<column_t> &out,
+                     const std::vector<std::string> &column_names,
+                     const int a_block = 0);
+
+    // Get all data columns from a block
+    void get_all_data_columns(std::vector<column_t> &out, int a_block = 0);
+
+    // Get a single column from a block
+    void get_column(std::vector<column_t> &out, int a_column, int a_block = 0);
+
+    // Get same data column from all blocks
+    void get_data_column_from_all_blocks(std::vector<column_t> &out,
+                                         int a_data_column);
+
+    // Returns a vector of numeric values from a header row
+    void get_data_from_header(std::vector<double> &out, int a_header_row_number,
+                              int a_block) const;
+
+    // Returns a vector of strings from a header row
+    void get_header_strings(std::vector<std::string> &header,
+                            int a_block = 0) const;
+
+    // Utility function to skip the header rows to start reading where the data
+    // is located
+    void skip_ahead(std::istringstream &file_stream, int nlines_to_skip,
+                    int a_block) const;
+
     // ------------ Other Functions --------------
+
+    // Only rank designated as the IOProcessor reads. This is a helper function
+    // to redistribute data amongst all ranks
+    static void broadcast_data(std::vector<column_t> &data);
 
     //! returns the full filename of a file created in NEW mode at time=a_time
     //! with dt=a_dt

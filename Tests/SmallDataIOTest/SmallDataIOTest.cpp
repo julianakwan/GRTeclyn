@@ -47,9 +47,8 @@ bool check_almost_equal(std::vector<double> vector_1,
     return true;
 }
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-void test_small_data_io_writer(
-    const std::vector<SmallDataIOReader::column_t> &col,
-    const int data_precision)
+void test_small_data_io_writer(const std::vector<SmallDataIO::column_t> &col,
+                               const int data_precision)
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
     const std::string filename_prefix{"test_"};
@@ -73,12 +72,11 @@ void test_small_data_io_writer(
     }
 }
 
-std::vector<SmallDataIOReader::column_t>
+std::vector<SmallDataIO::column_t>
 test_small_data_io_reader(const std::vector<std::string> &column_names)
 {
 
-    SmallDataIOReader test_reader;
-    test_reader.open("test_000000.dat");
+    SmallDataIO test_reader("test_000000");
 
     // Could print out file structure as well
     // test_reader.print_file_structure();
@@ -93,26 +91,25 @@ test_small_data_io_reader(const std::vector<std::string> &column_names)
     // If a column name doesn't exist in the header, amrex::Abort will
     // be called
 
-    std::vector<SmallDataIOReader::column_t> data;
+    std::vector<SmallDataIO::column_t> data;
     test_reader.get_columns(data, column_names, 0);
 
-    SmallDataIOReader::broadcast_data(data);
+    SmallDataIO::broadcast_data(data);
 
     return data;
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-std::vector<SmallDataIOReader::column_t>
+std::vector<SmallDataIO::column_t>
 test_small_data_io_reader(const int a_min_col, const int a_max_col)
 {
 
-    SmallDataIOReader test_reader;
-    test_reader.open("test_000000.dat");
+    SmallDataIO test_reader("test_000000");
 
-    std::vector<SmallDataIOReader::column_t> data;
+    std::vector<SmallDataIO::column_t> data;
     test_reader.get_columns(data, a_min_col, a_max_col, 0);
 
-    SmallDataIOReader::broadcast_data(data);
+    SmallDataIO::broadcast_data(data);
 
     return data;
 }
@@ -120,10 +117,9 @@ test_small_data_io_reader(const int a_min_col, const int a_max_col)
 std::vector<double> test_small_data_io_reader(const int a_col)
 
 {
-    SmallDataIOReader test_reader;
-    test_reader.open("test_000000.dat");
+    SmallDataIO test_reader("test_000000");
 
-    std::vector<SmallDataIOReader::column_t> data;
+    std::vector<SmallDataIO::column_t> data;
     test_reader.get_column(data, a_col, 0);
 
     return data[0];
@@ -147,7 +143,7 @@ void run_small_data_io_test()
         amrex::InitRandom(cpu_seed, amrex::ParallelDescriptor::NProcs(),
                           gpu_seed);
 
-        std::vector<SmallDataIOReader::column_t> write_data(3);
+        std::vector<SmallDataIO::column_t> write_data(3);
         for (auto &column : write_data)
         {
             column.resize(Npts);
